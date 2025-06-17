@@ -38,6 +38,20 @@ const reportSchema = new mongoose.Schema({
 });
 const Report = mongoose.model('Report', reportSchema);
 
+// --- Catálogos: Modelos ---
+const activitySchema = new mongoose.Schema({ nombre: { type: String, required: true, unique: true } });
+const Activity = mongoose.model('Activity', activitySchema);
+
+const tramoSchema = new mongoose.Schema({ nombre: { type: String, required: true, unique: true } });
+const Tramo = mongoose.model('Tramo', tramoSchema);
+
+const workerSchema = new mongoose.Schema({
+  nombre: { type: String, required: true },
+  rut: { type: String, required: true, unique: true },
+  cargo: { type: String, required: true }
+});
+const Worker = mongoose.model('Worker', workerSchema);
+
 // Middleware to authenticate user via JWT
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -172,6 +186,94 @@ app.delete('/reports/:id', authenticateToken, async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Error deleting report', error: err.message });
   }
+});
+
+// --- Catálogos: Rutas ---
+// ACTIVITIES
+app.get('/catalog/activities', authenticateToken, async (req, res) => {
+  const list = await Activity.find();
+  res.json(list);
+});
+app.post('/catalog/activities', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    if (!nombre) return res.status(400).json({ message: 'Nombre requerido' });
+    const act = new Activity({ nombre });
+    await act.save();
+    res.status(201).json(act);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.put('/catalog/activities/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    const act = await Activity.findByIdAndUpdate(req.params.id, { nombre }, { new: true });
+    if (!act) return res.status(404).json({ message: 'No encontrado' });
+    res.json(act);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.delete('/catalog/activities/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    await Activity.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Eliminado' });
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
+// TRAMOS
+app.get('/catalog/tramos', authenticateToken, async (req, res) => {
+  const list = await Tramo.find();
+  res.json(list);
+});
+app.post('/catalog/tramos', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    if (!nombre) return res.status(400).json({ message: 'Nombre requerido' });
+    const tramo = new Tramo({ nombre });
+    await tramo.save();
+    res.status(201).json(tramo);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.put('/catalog/tramos/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    const tramo = await Tramo.findByIdAndUpdate(req.params.id, { nombre }, { new: true });
+    if (!tramo) return res.status(404).json({ message: 'No encontrado' });
+    res.json(tramo);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.delete('/catalog/tramos/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    await Tramo.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Eliminado' });
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
+// WORKERS
+app.get('/catalog/workers', authenticateToken, async (req, res) => {
+  const list = await Worker.find();
+  res.json(list);
+});
+app.post('/catalog/workers', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre, rut, cargo } = req.body;
+    if (!nombre || !rut || !cargo) return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    const worker = new Worker({ nombre, rut, cargo });
+    await worker.save();
+    res.status(201).json(worker);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.put('/catalog/workers/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { nombre, rut, cargo } = req.body;
+    const worker = await Worker.findByIdAndUpdate(req.params.id, { nombre, rut, cargo }, { new: true });
+    if (!worker) return res.status(404).json({ message: 'No encontrado' });
+    res.json(worker);
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+app.delete('/catalog/workers/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    await Worker.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Eliminado' });
+  } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
 const PORT = 4000;
