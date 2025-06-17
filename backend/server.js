@@ -253,6 +253,7 @@ app.get('/catalog/workers', authenticateToken, async (req, res) => {
   const list = await Worker.find();
   res.json(list);
 });
+// Solo admin puede crear trabajadores
 app.post('/catalog/workers', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { nombre, rut, cargo } = req.body;
