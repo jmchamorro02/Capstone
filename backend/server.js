@@ -110,8 +110,11 @@ app.post('/auth/login', async (req, res) => {
 
 // Create a daily report - updated to accept area, jornada, supervisor, team, actividades
 app.post('/reports', authenticateToken, async (req, res) => {
-  // Permitir informes aunque actividades esté vacío o incompleto
-  const { team, actividades } = req.body;
+  // Validar y guardar correctamente todos los campos
+  const { area, jornada, supervisor, team, actividades } = req.body;
+  if (!area || !jornada || !supervisor) {
+    return res.status(400).json({ message: 'Área, jornada y supervisor son requeridos' });
+  }
   if (!Array.isArray(team) || team.length === 0) {
     return res.status(400).json({ message: 'El equipo es requerido y no puede estar vacío' });
   }
@@ -122,17 +125,23 @@ app.post('/reports', authenticateToken, async (req, res) => {
     ) {
       return res.status(400).json({ message: 'Cada integrante del equipo debe tener al menos un campo' });
     }
+    // Asegurar que tipoAsist se guarde aunque sea vacío
+    if (!('tipoAsist' in member)) member.tipoAsist = '';
   }
   // actividades puede ser vacío o incompleto
   let safeActividades = Array.isArray(actividades) ? actividades.map(act => ({
     descripcion: act.descripcion || '',
     horaInicio: act.horaInicio || '',
-    horaFin: act.horaFin || ''
+    horaFin: act.horaFin || '',
+    detalle: act.detalle || '' // nuevo campo detalle
   })) : [];
   try {
     const newReport = new Report({
       userId: req.user.id,
       username: req.user.username,
+      area,
+      jornada,
+      supervisor,
       team,
       actividades: safeActividades
     });
