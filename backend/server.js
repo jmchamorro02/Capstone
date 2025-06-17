@@ -110,9 +110,10 @@ app.post('/auth/login', async (req, res) => {
 
 // Create a daily report - updated to accept area, jornada, supervisor, team, actividades
 app.post('/reports', authenticateToken, async (req, res) => {
-  const { area, jornada, supervisor, team, actividades } = req.body;
-  if (!area || !jornada || !supervisor || !Array.isArray(team) || team.length === 0) {
-    return res.status(400).json({ message: 'Área, jornada, supervisor y equipo son requeridos' });
+  // Remove area, jornada, supervisor as required fields
+  const { team, actividades } = req.body;
+  if (!Array.isArray(team) || team.length === 0) {
+    return res.status(400).json({ message: 'El equipo es requerido y no puede estar vacío' });
   }
   for (const member of team) {
     if (
@@ -138,9 +139,7 @@ app.post('/reports', authenticateToken, async (req, res) => {
     const newReport = new Report({
       userId: req.user.id,
       username: req.user.username,
-      area,
-      jornada,
-      supervisor,
+      // area, jornada, supervisor are now optional and not required
       team,
       actividades
     });
