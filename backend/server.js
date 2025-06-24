@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const JWT_SECRET = 'supersecretkey';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // MongoDB connection
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/icafal';
@@ -33,7 +33,11 @@ const reportSchema = new mongoose.Schema({
   jornada: String,
   supervisor: String,
   team: [Object],
-  actividades: [Object],
+  actividades: [Object], // Mantenemos para compatibilidad
+  avances: [Object],
+  interferencias: [Object],
+  detenciones: [Object],
+  comentarios: [Object],
   dateSubmitted: { type: Date, default: Date.now }
 });
 const Report = mongoose.model('Report', reportSchema);
@@ -111,13 +115,15 @@ app.post('/auth/login', async (req, res) => {
 // Create a daily report - updated to accept area, jornada, supervisor, team, actividades
 app.post('/reports', authenticateToken, async (req, res) => {
   // Validar y guardar correctamente todos los campos
-  const { area, jornada, supervisor, team, actividades } = req.body;
+  const { area, jornada, supervisor, team, actividades, avances, interferencias, detenciones, comentarios } = req.body;
+  
   if (!area || !jornada || !supervisor) {
     return res.status(400).json({ message: 'Área, jornada y supervisor son requeridos' });
   }
   if (!Array.isArray(team) || team.length === 0) {
     return res.status(400).json({ message: 'El equipo es requerido y no puede estar vacío' });
   }
+  
   for (const member of team) {
     if (
       typeof member !== 'object' ||
@@ -128,25 +134,62 @@ app.post('/reports', authenticateToken, async (req, res) => {
     // Asegurar que tipoAsist se guarde aunque sea vacío
     if (!('tipoAsist' in member)) member.tipoAsist = '';
   }
-  // actividades puede ser vacío o incompleto
-  let safeActividades = Array.isArray(actividades) ? actividades.map(act => ({
-    descripcion: act.descripcion || '',
-    horaInicio: act.horaInicio || '',
-    horaFin: act.horaFin || '',
-    detalle: act.detalle || '' // nuevo campo detalle
-  })) : [];
+  
+  // Procesar actividades (mantenemos para compatibilidad)
+  let safeActividades = [];
+  if (Array.isArray(actividades)) {
+    safeActividades = actividades.map(act => ({
+      descripcion: act.descripcion || '',
+      horaInicio: act.horaInicio || '',
+      horaFin: act.horaFin || '',
+      detalle: act.detalle || ''
+    }));
+  }
+
+  // Procesar nuevos campos con validación mejorada
+  let safeAvances = [];
+  if (Array.isArray(avances)) {
+    safeAvances = avances.filter(av => av && av.descripcion && av.descripcion.trim())
+      .map(av => ({ descripcion: av.descripcion.trim() }));
+  }
+
+  let safeInterferencias = [];
+  if (Array.isArray(interferencias)) {
+    safeInterferencias = interferencias.filter(inter => inter && inter.descripcion && inter.descripcion.trim())
+      .map(inter => ({ descripcion: inter.descripcion.trim() }));
+  }
+
+  let safeDetenciones = [];
+  if (Array.isArray(detenciones)) {
+    safeDetenciones = detenciones.filter(det => det && det.descripcion && det.descripcion.trim())
+      .map(det => ({ descripcion: det.descripcion.trim() }));
+  }
+
+  let safeComentarios = [];
+  if (Array.isArray(comentarios)) {
+    safeComentarios = comentarios.filter(com => com && com.descripcion && com.descripcion.trim())
+      .map(com => ({ descripcion: com.descripcion.trim() }));
+  }
+
   try {
-    const newReport = new Report({
+    const reportData = {
       userId: req.user.id,
       username: req.user.username,
       area,
       jornada,
       supervisor,
       team,
-      actividades: safeActividades
-    });
-    await newReport.save();
-    res.status(201).json({ message: 'Report created successfully', report: newReport });
+      actividades: safeActividades,
+      avances: safeAvances,
+      interferencias: safeInterferencias,
+      detenciones: safeDetenciones,
+      comentarios: safeComentarios
+    };
+    
+    const newReport = new Report(reportData);
+    const savedReport = await newReport.save();
+    
+    res.status(201).json({ message: 'Report created successfully', report: savedReport });
   } catch (err) {
     res.status(500).json({ message: 'Error creating report', error: err.message });
   }
@@ -278,8 +321,15 @@ app.delete('/catalog/workers/:id', authenticateToken, isAdmin, async (req, res) 
   } catch (e) { res.status(400).json({ message: e.message }); }
 });
 
-const PORT = 4000;
+app.delete('/catalog/workers/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    await Worker.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Eliminado' });
+  } catch (e) { res.status(400).json({ message: e.message }); }
+});
+
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
